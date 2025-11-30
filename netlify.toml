@@ -1,4 +1,4 @@
 [build]
   functions = "functions"
   publish = "."
-  command = "exit 0"
+  command = "echo 'Build successful'"
