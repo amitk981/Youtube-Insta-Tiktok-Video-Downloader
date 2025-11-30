@@ -1,4 +1,4 @@
 [build]
   functions = "functions"
   publish = "."
-  command = "echo 'No build command required'"
+  command = "exit 0"
