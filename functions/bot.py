@@ -39,8 +39,20 @@ async def process_update(event_body):
 
 def handler(event, context):
     # This is the entry point for Netlify
-    if event['httpMethod'] == 'POST':
-        asyncio.run(process_update(event['body']))
-        return {'statusCode': 200, 'body': 'OK'}
+    print(f"Received event: {event['httpMethod']}")
     
-    return {'statusCode': 200, 'body': 'Bot is running'}
+    if not TOKEN:
+        print("CRITICAL ERROR: TELEGRAM_BOT_TOKEN is missing in Environment Variables!")
+        return {'statusCode': 500, 'body': 'Missing Token'}
+
+    try:
+        if event['httpMethod'] == 'POST':
+            asyncio.run(process_update(event['body']))
+            return {'statusCode': 200, 'body': 'OK'}
+        
+        return {'statusCode': 200, 'body': 'Bot is running'}
+    except Exception as e:
+        print(f"ERROR processing update: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {'statusCode': 500, 'body': str(e)}
