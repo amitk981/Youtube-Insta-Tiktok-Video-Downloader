@@ -1,0 +1,59 @@
+import os
+import json
+import asyncio
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, ContextTypes
+
+# Retrieve token from Environment Variables
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+
+# Initialize App (Global to cache it for hot starts)
+if TOKEN:
+    application = Application.builder().token(TOKEN).build()
+else:
+    application = None
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # YOUR MONETAG STRATEGY:
+    monetag_link = "https://otieu.com/4/10256428" 
+    
+    keyboard = [
+        [InlineKeyboardButton("🎁 Click here to access bot", url=monetag_link)],
+        [InlineKeyboardButton("Help", callback_data='help')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        "Welcome! To use this bot, please verify you are human by clicking the link below:",
+        reply_markup=reply_markup
+    )
+
+async def process_update(event_body):
+    # Hook the handlers
+    if not application.handlers:
+        application.add_handler(CommandHandler("start", start))
+
+    # Process the update from Telegram
+    await application.initialize()
+    update = Update.de_json(json.loads(event_body), application.bot)
+    await application.process_update(update)
+    await application.shutdown()
+
+def handler(event, context):
+    print(f"Received event: {event['httpMethod']}")
+    
+    if not TOKEN:
+        print("CRITICAL ERROR: TELEGRAM_BOT_TOKEN is missing in Environment Variables!")
+        return {'statusCode': 500, 'body': 'Missing Token'}
+
+    try:
+        if event['httpMethod'] == 'POST':
+            asyncio.run(process_update(event['body']))
+            return {'statusCode': 200, 'body': 'OK'}
+        
+        return {'statusCode': 200, 'body': 'Bot is running'}
+    except Exception as e:
+        print(f"ERROR processing update: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {'statusCode': 500, 'body': str(e)}
