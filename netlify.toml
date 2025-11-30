@@ -1,4 +1,4 @@
 [build]
-  functions = "functions"
-  publish = "."
   command = "echo 'Build successful'"
+  functions = "netlify/functions"
+  publish = "dist"
