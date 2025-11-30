@@ -1,6 +1,4 @@
 [build]
   functions = "functions"
   publish = "."
-
-[functions]
-  external_node_modules = ["python-telegram-bot"]
+  command = "echo 'No build command required'"
