@@ -161,14 +161,22 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Check if we have YouTube cookies from environment variable
         youtube_cookies = os.environ.get("YOUTUBE_COOKIES")
+        instagram_cookies = os.environ.get("INSTAGRAM_COOKIES")
         cookies_file = None
         
-        if youtube_cookies:
-            # Save cookies to temporary file
-            cookies_file = os.path.join(temp_dir, 'cookies.txt')
-            with open(cookies_file, 'w') as f:
-                f.write(youtube_cookies)
-            logger.info("Using YouTube cookies from environment")
+        # Determine which cookies to use based on the URL
+        if 'youtube.com' in url.lower() or 'youtu.be' in url.lower():
+            if youtube_cookies:
+                cookies_file = os.path.join(temp_dir, 'cookies.txt')
+                with open(cookies_file, 'w') as f:
+                    f.write(youtube_cookies)
+                logger.info("Using YouTube cookies from environment")
+        elif 'instagram.com' in url.lower():
+            if instagram_cookies:
+                cookies_file = os.path.join(temp_dir, 'cookies.txt')
+                with open(cookies_file, 'w') as f:
+                    f.write(instagram_cookies)
+                logger.info("Using Instagram cookies from environment")
         
         # Configure yt-dlp settings
         ydl_opts = {
