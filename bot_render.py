@@ -11,6 +11,8 @@ import os  # This helps us read settings from the computer
 import logging  # This helps us write messages about what the bot is doing
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup  # Tools to work with Telegram
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes  # More Telegram tools
+from http.server import HTTPServer, BaseHTTPRequestHandler  # Tools to create a simple web server
+from threading import Thread  # Tool to run multiple things at once
 
 # ============================================
 # STEP 2: Set up logging (like a diary for the bot)
@@ -33,6 +35,38 @@ TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 # MONETAG_LINK: This is the ad link that makes us money
 # When users click it, we earn money!
 MONETAG_LINK = "https://otieu.com/4/10256428"
+
+# PORT: Render needs us to open a port (like a door for web traffic)
+# We get this from Render's settings, or use 10000 as default
+PORT = int(os.environ.get("PORT", 10000))
+
+# ============================================
+# STEP 3.5: Create a simple web server (for Render)
+# ============================================
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    """
+    This is a simple web server that Render can check
+    It's like a "I'm alive!" signal
+    """
+    def do_GET(self):
+        # When someone visits our web address, say "Bot is running!"
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b'<h1>Telegram Bot is Running!</h1><p>Bot Status: Active</p>')
+    
+    def log_message(self, format, *args):
+        # Don't print every web request (keeps logs clean)
+        return
+
+def run_health_server():
+    """
+    Start the web server on the port Render expects
+    This runs in the background while the bot runs
+    """
+    server = HTTPServer(('0.0.0.0', PORT), HealthCheckHandler)
+    logger.info(f"Health check server running on port {PORT}")
+    server.serve_forever()
 
 # ============================================
 # STEP 4: Define what happens when user sends /start
@@ -146,6 +180,12 @@ def main():
     
     # Write in our diary that we're starting
     logger.info("Starting bot...")
+    
+    # Start the health check server in a separate thread
+    # This runs in the background so Render knows we're alive
+    health_thread = Thread(target=run_health_server, daemon=True)
+    health_thread.start()
+    logger.info("Health check server started in background")
     
     # Create the bot application (like building the bot)
     application = Application.builder().token(TOKEN).build()
