@@ -1,59 +1,62 @@
 import os
 import json
-import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application
 
-# Retrieve token from Environment Variables
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-
-# Initialize App (Global to cache it for hot starts)
-if TOKEN:
-    application = Application.builder().token(TOKEN).build()
-else:
-    application = None
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # YOUR MONETAG STRATEGY:
-    monetag_link = "https://otieu.com/4/10256428" 
-    
-    keyboard = [
-        [InlineKeyboardButton("🎁 Click here to access bot", url=monetag_link)],
-        [InlineKeyboardButton("Help", callback_data='help')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await update.message.reply_text(
-        "Welcome! To use this bot, please verify you are human by clicking the link below:",
-        reply_markup=reply_markup
-    )
-
-async def process_update(event_body):
-    # Hook the handlers
-    if not application.handlers:
-        application.add_handler(CommandHandler("start", start))
-
-    # Process the update from Telegram
-    await application.initialize()
-    update = Update.de_json(json.loads(event_body), application.bot)
-    await application.process_update(update)
-    await application.shutdown()
+MONETAG_LINK = "https://otieu.com/4/10256428"
 
 def handler(event, context):
-    print(f"Received event: {event['httpMethod']}")
+    """Netlify function handler"""
+    print(f"Received request: {event.get('httpMethod', 'UNKNOWN')}")
     
-    if not TOKEN:
-        print("CRITICAL ERROR: TELEGRAM_BOT_TOKEN is missing in Environment Variables!")
-        return {'statusCode': 500, 'body': 'Missing Token'}
-
-    try:
-        if event['httpMethod'] == 'POST':
-            asyncio.run(process_update(event['body']))
+    # Health check
+    if event.get('httpMethod') == 'GET':
+        return {
+            'statusCode': 200,
+            'body': json.dumps({'status': 'Bot is running', 'token_set': bool(TOKEN)})
+        }
+    
+    # Webhook handler
+    if event.get('httpMethod') == 'POST':
+        try:
+            if not TOKEN:
+                print("ERROR: TELEGRAM_BOT_TOKEN not set")
+                return {'statusCode': 500, 'body': 'Token missing'}
+            
+            # Parse update
+            body = json.loads(event.get('body', '{}'))
+            print(f"Received update: {json.dumps(body)[:200]}")
+            
+            # Handle /start command
+            if 'message' in body and 'text' in body['message']:
+                if body['message']['text'] == '/start':
+                    chat_id = body['message']['chat']['id']
+                    
+                    # Send monetag link
+                    import requests
+                    keyboard = {
+                        'inline_keyboard': [[
+                            {'text': '🎁 Click here to access bot', 'url': MONETAG_LINK}
+                        ]]
+                    }
+                    
+                    response = requests.post(
+                        f'https://api.telegram.org/bot{TOKEN}/sendMessage',
+                        json={
+                            'chat_id': chat_id,
+                            'text': '🎬 Welcome to Video Downloader Bot!\n\nTo use this bot, please verify you are human by clicking the link below:',
+                            'reply_markup': keyboard
+                        }
+                    )
+                    print(f"Sent message, status: {response.status_code}")
+            
             return {'statusCode': 200, 'body': 'OK'}
-        
-        return {'statusCode': 200, 'body': 'Bot is running'}
-    except Exception as e:
-        print(f"ERROR processing update: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return {'statusCode': 500, 'body': str(e)}
+            
+        except Exception as e:
+            print(f"ERROR: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {'statusCode': 500, 'body': str(e)}
+    
+    return {'statusCode': 405, 'body': 'Method not allowed'}
