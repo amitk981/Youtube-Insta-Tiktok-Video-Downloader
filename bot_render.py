@@ -1,41 +1,76 @@
-import os
-import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+# ============================================
+# TELEGRAM VIDEO DOWNLOADER BOT
+# ============================================
+# This bot helps users download videos from YouTube, TikTok, and Instagram
+# It also shows ads (Monetag) to earn money
 
-# Configure logging
+# ============================================
+# STEP 1: Import the tools we need
+# ============================================
+import os  # This helps us read settings from the computer
+import logging  # This helps us write messages about what the bot is doing
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup  # Tools to work with Telegram
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes  # More Telegram tools
+
+# ============================================
+# STEP 2: Set up logging (like a diary for the bot)
+# ============================================
+# This creates a "diary" that writes down everything the bot does
+# It helps us see if something goes wrong
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # How each diary entry looks
+    level=logging.INFO  # Write down important things
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)  # Create our diary writer
 
-# Get token from environment
+# ============================================
+# STEP 3: Get important information
+# ============================================
+# TOKEN: This is like a password that lets our bot talk to Telegram
+# We get it from the computer's settings (environment variables)
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+
+# MONETAG_LINK: This is the ad link that makes us money
+# When users click it, we earn money!
 MONETAG_LINK = "https://otieu.com/4/10256428"
 
-# Track users who clicked the Monetag link
-verified_users = set()
-
+# ============================================
+# STEP 4: Define what happens when user sends /start
+# ============================================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /start command with Monetag link"""
+    """
+    This function runs when someone types /start
+    It shows them a welcome message and a button with the ad link
+    """
+    # Get the user's ID (like their username number)
     user_id = update.effective_user.id
+    
+    # Write in our diary that this user started the bot
     logger.info(f"User {user_id} started the bot")
     
+    # Create a button that shows the ad link
+    # This is how we make money - when users click this button!
     keyboard = [
         [InlineKeyboardButton("🎁 Click here to access bot", url=MONETAG_LINK)],
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    reply_markup = InlineKeyboardMarkup(keyboard)  # Package the button nicely
     
+    # Send the welcome message with the button
     await update.message.reply_text(
         "🎬 Welcome to Video Downloader Bot!\n\n"
         "To use this bot, please verify you are human by clicking the link below.\n"
         "After clicking, come back and send me a video URL!",
-        reply_markup=reply_markup
+        reply_markup=reply_markup  # Include the button
     )
 
+# ============================================
+# STEP 5: Define what happens when user sends /help
+# ============================================
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /help command"""
+    """
+    This function runs when someone types /help
+    It tells them how to use the bot
+    """
     await update.message.reply_text(
         "📖 How to use:\n\n"
         "1. Click the verification link from /start\n"
@@ -48,25 +83,37 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• And many more!"
     )
 
+# ============================================
+# STEP 6: Define what happens when user sends a video URL
+# ============================================
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle video URL messages"""
+    """
+    This function runs when someone sends a message (not a command)
+    It checks if it's a video URL and responds
+    """
+    # Get the user's ID
     user_id = update.effective_user.id
+    
+    # Get the message they sent (the URL)
     url = update.message.text
     
+    # Write in our diary what URL they sent
     logger.info(f"User {user_id} sent URL: {url}")
     
-    # Simple URL validation
+    # Check if the URL is from YouTube, TikTok, or Instagram
+    # We look for these words in the URL
     if not any(platform in url.lower() for platform in ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com']):
+        # If it's not a valid URL, tell them
         await update.message.reply_text(
             "❌ Please send a valid video URL from:\n"
             "• YouTube\n"
             "• TikTok\n"
             "• Instagram"
         )
-        return
+        return  # Stop here, don't do anything else
     
-    # For now, just acknowledge the URL
-    # Full download functionality can be added later
+    # If we get here, the URL is valid!
+    # For now, we just say "we got it" - later we can add download code
     await update.message.reply_text(
         "✅ URL received!\n\n"
         f"🔗 {url}\n\n"
@@ -74,32 +121,54 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "For now, the bot is running successfully with Monetag integration!"
     )
 
+# ============================================
+# STEP 7: Define what happens when there's an error
+# ============================================
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    """Log errors"""
+    """
+    This function runs when something goes wrong
+    It writes the error in our diary so we can fix it
+    """
     logger.error(f"Exception while handling an update: {context.error}", exc_info=context.error)
 
+# ============================================
+# STEP 8: The main function - this starts everything!
+# ============================================
 def main():
-    """Start the bot"""
+    """
+    This is the main function that starts the bot
+    It's like pressing the "ON" button
+    """
+    # First, check if we have the bot token (password)
     if not TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN not set!")
-        return
+        return  # Stop if we don't have the password
     
+    # Write in our diary that we're starting
     logger.info("Starting bot...")
     
-    # Create application
+    # Create the bot application (like building the bot)
     application = Application.builder().token(TOKEN).build()
     
-    # Add handlers
+    # Tell the bot what to do when users send different things:
+    # - When they send /start, run the start() function
     application.add_handler(CommandHandler("start", start))
+    
+    # - When they send /help, run the help_command() function
     application.add_handler(CommandHandler("help", help_command))
+    
+    # - When they send any text (not a command), run the handle_url() function
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url))
     
-    # Add error handler
+    # - If anything goes wrong, run the error_handler() function
     application.add_error_handler(error_handler)
     
-    # Start polling
+    # Start the bot! It will now listen for messages
     logger.info("Bot is now running!")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
+# ============================================
+# STEP 9: Actually start the bot when we run this file
+# ============================================
 if __name__ == '__main__':
-    main()
+    main()  # Call the main function to start everything!
