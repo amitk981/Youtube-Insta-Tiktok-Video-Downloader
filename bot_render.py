@@ -159,33 +159,52 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         temp_dir = tempfile.mkdtemp()
         output_path = os.path.join(temp_dir, 'video.%(ext)s')
         
-        # Configure yt-dlp settings - using YouTube mobile API to bypass restrictions
+        # Check if we have YouTube cookies from environment variable
+        youtube_cookies = os.environ.get("YOUTUBE_COOKIES")
+        cookies_file = None
+        
+        if youtube_cookies:
+            # Save cookies to temporary file
+            cookies_file = os.path.join(temp_dir, 'cookies.txt')
+            with open(cookies_file, 'w') as f:
+                f.write(youtube_cookies)
+            logger.info("Using YouTube cookies from environment")
+        
+        # Configure yt-dlp settings
         ydl_opts = {
             # Get best quality available (up to 1080p), fallback to lower if needed
             'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]/best',
             'outtmpl': output_path,
             'quiet': True,
             'no_warnings': True,
-            # Use YouTube's mobile app API (doesn't require login)
-            'extractor_args': {
-                'youtube': {
-                    'player_client': ['android'],  # Android client works best without cookies
-                    'player_skip': ['webpage', 'configs'],  # Skip web-based extraction
-                }
-            },
             # Merge video and audio into single file
             'merge_output_format': 'mp4',
-            # Additional options to avoid detection
+            # Additional options
             'nocheckcertificate': True,
             'geo_bypass': True,
-            'age_limit': None,
         }
+        
+        # Add cookies if available
+        if cookies_file:
+            ydl_opts['cookiefile'] = cookies_file
+        else:
+            # Fallback to Android API if no cookies
+            ydl_opts['extractor_args'] = {
+                'youtube': {
+                    'player_client': ['android'],
+                    'player_skip': ['webpage', 'configs'],
+                }
+            }
         
         # Download the video
         logger.info(f"Starting download for URL: {url}")
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info)
+        
+        # Clean up cookies file if it was created
+        if cookies_file and os.path.exists(cookies_file):
+            os.remove(cookies_file)
         
         # Update status: Download complete, now uploading
         await status_message.edit_text("✅ Download complete! Uploading to Telegram...")
