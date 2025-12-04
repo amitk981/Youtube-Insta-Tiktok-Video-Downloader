@@ -123,7 +123,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     This function runs when someone sends a message (not a command)
-    It checks if it's a video URL and responds
+    It checks if it's a video URL and downloads the video
     """
     # Get the user's ID
     user_id = update.effective_user.id
@@ -136,7 +136,7 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Check if the URL is from YouTube, TikTok, or Instagram
     # We look for these words in the URL
-    if not any(platform in url.lower() for platform in ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com']):
+    if not any(platform in url.lower() for platform in ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'reels']):
         # If it's not a valid URL, tell them
         await update.message.reply_text(
             "❌ Please send a valid video URL from:\n"
@@ -146,14 +146,76 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return  # Stop here, don't do anything else
     
-    # If we get here, the URL is valid!
-    # For now, we just say "we got it" - later we can add download code
-    await update.message.reply_text(
-        "✅ URL received!\n\n"
-        f"🔗 {url}\n\n"
-        "📥 Video download functionality will be added soon.\n"
-        "For now, the bot is running successfully with Monetag integration!"
-    )
+    # Tell the user we're starting the download
+    status_message = await update.message.reply_text("⏳ Downloading video... Please wait!")
+    
+    try:
+        # Import yt-dlp (the tool that downloads videos)
+        import yt_dlp
+        import os
+        import tempfile
+        
+        # Create a temporary folder to store the video
+        temp_dir = tempfile.mkdtemp()
+        output_path = os.path.join(temp_dir, 'video.%(ext)s')
+        
+        # Configure yt-dlp settings
+        ydl_opts = {
+            'format': 'best[ext=mp4]/best',  # Get best quality MP4
+            'outtmpl': output_path,  # Where to save the file
+            'quiet': True,  # Don't print too much info
+            'no_warnings': True,
+        }
+        
+        # Download the video
+        logger.info(f"Starting download for URL: {url}")
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
+        
+        # Update status: Download complete, now uploading
+        await status_message.edit_text("✅ Download complete! Uploading to Telegram...")
+        
+        # Check file size (Telegram has a 50MB limit for bots)
+        file_size = os.path.getsize(filename)
+        if file_size > 50 * 1024 * 1024:  # 50MB in bytes
+            await status_message.edit_text(
+                "❌ Sorry, this video is too large (over 50MB).\n"
+                "Telegram bots can only send files up to 50MB."
+            )
+            # Clean up the file
+            os.remove(filename)
+            os.rmdir(temp_dir)
+            return
+        
+        # Send the video to the user
+        logger.info(f"Uploading video to user {user_id}")
+        with open(filename, 'rb') as video_file:
+            await update.message.reply_video(
+                video=video_file,
+                caption="✅ Here's your video!\n\n💡 Share this bot with friends!",
+                supports_streaming=True
+            )
+        
+        # Delete the status message
+        await status_message.delete()
+        
+        # Clean up: Delete the temporary file and folder
+        os.remove(filename)
+        os.rmdir(temp_dir)
+        logger.info(f"Successfully sent video to user {user_id}")
+        
+    except Exception as e:
+        # If something goes wrong, tell the user
+        logger.error(f"Error downloading video: {str(e)}")
+        await status_message.edit_text(
+            f"❌ Sorry, I couldn't download this video.\n\n"
+            f"Error: {str(e)[:100]}\n\n"
+            f"Please try:\n"
+            f"• A different video URL\n"
+            f"• A shorter video\n"
+            f"• A public video (not private)"
+        )
 
 # ============================================
 # STEP 7: Define what happens when there's an error
@@ -178,14 +240,19 @@ def main():
         logger.error("TELEGRAM_BOT_TOKEN not set!")
         return  # Stop if we don't have the password
     
-    # Write in our diary that we're starting
-    logger.info("Starting bot...")
-    
-    # Start the health check server in a separate thread
-    # This runs in the background so Render knows we're alive
+    # IMPORTANT: Start the health check server FIRST
+    # This lets Render detect the port immediately (fixes timeout issue)
+    logger.info("Starting health check server...")
     health_thread = Thread(target=run_health_server, daemon=True)
     health_thread.start()
-    logger.info("Health check server started in background")
+    
+    # Give the server a moment to start
+    import time
+    time.sleep(2)
+    logger.info(f"Health check server running on port {PORT}")
+    
+    # Now start the bot
+    logger.info("Starting Telegram bot...")
     
     # Create the bot application (like building the bot)
     application = Application.builder().token(TOKEN).build()
@@ -204,7 +271,7 @@ def main():
     application.add_error_handler(error_handler)
     
     # Start the bot! It will now listen for messages
-    logger.info("Bot is now running!")
+    logger.info("Bot is now running and polling for messages!")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 # ============================================
