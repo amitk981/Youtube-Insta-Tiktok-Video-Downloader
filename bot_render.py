@@ -161,8 +161,8 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Configure yt-dlp settings - using YouTube mobile API to bypass restrictions
         ydl_opts = {
-            # Use lower quality format that's more reliable
-            'format': '18/best[height<=480]/worst',  # Format 18 = 360p MP4, very reliable
+            # Get best quality available (up to 1080p), fallback to lower if needed
+            'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]/best',
             'outtmpl': output_path,
             'quiet': True,
             'no_warnings': True,
@@ -173,6 +173,8 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     'player_skip': ['webpage', 'configs'],  # Skip web-based extraction
                 }
             },
+            # Merge video and audio into single file
+            'merge_output_format': 'mp4',
             # Additional options to avoid detection
             'nocheckcertificate': True,
             'geo_bypass': True,
