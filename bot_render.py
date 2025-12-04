@@ -161,15 +161,17 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Configure yt-dlp settings with YouTube bypass
         ydl_opts = {
-            'format': 'best[ext=mp4][height<=720]/best[ext=mp4]/best',  # Get best quality MP4, max 720p
+            'format': 'best[ext=mp4][height<=480]/best[height<=480]/worst',  # Lower quality to avoid restrictions
             'outtmpl': output_path,  # Where to save the file
             'quiet': True,  # Don't print too much info
             'no_warnings': True,
+            # Try to extract cookies from browser automatically
+            'cookiesfrombrowser': ('chrome',),  # Try Chrome first, falls back to Firefox/Edge
             # Bypass YouTube bot detection
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'web'],  # Use mobile client
-                    'skip': ['hls', 'dash']  # Skip certain formats
+                    'player_client': ['android', 'ios', 'web'],  # Try multiple clients
+                    'skip': ['hls', 'dash'],  # Skip certain formats
                 }
             },
             # Spoof user agent to look like a real browser
@@ -179,6 +181,9 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 'Accept-Language': 'en-us,en;q=0.5',
                 'Sec-Fetch-Mode': 'navigate',
             },
+            # Ignore errors and try to continue
+            'ignoreerrors': False,
+            'nocheckcertificate': True,
         }
         
         # Download the video
