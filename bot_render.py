@@ -159,31 +159,24 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         temp_dir = tempfile.mkdtemp()
         output_path = os.path.join(temp_dir, 'video.%(ext)s')
         
-        # Configure yt-dlp settings with YouTube bypass
+        # Configure yt-dlp settings - using YouTube mobile API to bypass restrictions
         ydl_opts = {
-            'format': 'best[ext=mp4][height<=480]/best[height<=480]/worst',  # Lower quality to avoid restrictions
-            'outtmpl': output_path,  # Where to save the file
-            'quiet': True,  # Don't print too much info
+            # Use lower quality format that's more reliable
+            'format': '18/best[height<=480]/worst',  # Format 18 = 360p MP4, very reliable
+            'outtmpl': output_path,
+            'quiet': True,
             'no_warnings': True,
-            # Try to extract cookies from browser automatically
-            'cookiesfrombrowser': ('chrome',),  # Try Chrome first, falls back to Firefox/Edge
-            # Bypass YouTube bot detection
+            # Use YouTube's mobile app API (doesn't require login)
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'ios', 'web'],  # Try multiple clients
-                    'skip': ['hls', 'dash'],  # Skip certain formats
+                    'player_client': ['android'],  # Android client works best without cookies
+                    'player_skip': ['webpage', 'configs'],  # Skip web-based extraction
                 }
             },
-            # Spoof user agent to look like a real browser
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-us,en;q=0.5',
-                'Sec-Fetch-Mode': 'navigate',
-            },
-            # Ignore errors and try to continue
-            'ignoreerrors': False,
+            # Additional options to avoid detection
             'nocheckcertificate': True,
+            'geo_bypass': True,
+            'age_limit': None,
         }
         
         # Download the video
