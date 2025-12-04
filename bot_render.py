@@ -159,12 +159,26 @@ async def handle_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
         temp_dir = tempfile.mkdtemp()
         output_path = os.path.join(temp_dir, 'video.%(ext)s')
         
-        # Configure yt-dlp settings
+        # Configure yt-dlp settings with YouTube bypass
         ydl_opts = {
-            'format': 'best[ext=mp4]/best',  # Get best quality MP4
+            'format': 'best[ext=mp4][height<=720]/best[ext=mp4]/best',  # Get best quality MP4, max 720p
             'outtmpl': output_path,  # Where to save the file
             'quiet': True,  # Don't print too much info
             'no_warnings': True,
+            # Bypass YouTube bot detection
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'web'],  # Use mobile client
+                    'skip': ['hls', 'dash']  # Skip certain formats
+                }
+            },
+            # Spoof user agent to look like a real browser
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-us,en;q=0.5',
+                'Sec-Fetch-Mode': 'navigate',
+            },
         }
         
         # Download the video
